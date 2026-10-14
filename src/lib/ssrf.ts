@@ -1,5 +1,3 @@
-import dns from 'node:dns/promises';
-
 /** 去掉 URL.hostname 对 IPv6 附加的方括号（"[::1]" → "::1"） */
 function stripBrackets(host: string): string {
   return host.trim().replace(/^\[+|\]+$/g, '');
@@ -52,14 +50,47 @@ export function isValidProxyUrl(urlString: string): boolean {
   }
 }
 
-/** DNS 解析后校验目标主机名是否解析到内网/保留地址 */
+/** 内网语义主机名特征（DNS 解析能力不可用时按此降级拦截） */
+const PRIVATE_HOSTNAME_PATTERN = /(^|\.)(local|internal|localhost|localdomain|lan|home\.arpa|corp|intranet|test)(\.|$)/i;
+
+type DnsLookupFn = (hostname: string, options: { all: true }) => Promise<Array<{ address: string }>>;
+
+/**
+ * Edge 兼容的动态 DNS 解析能力：仅 Node 20.6+ 提供 process.getBuiltinModule，
+ * 用它运行时获取 node:dns/promises（不经静态 import，webpack 在 Edge 打包时
+ * 不会解析该 scheme，从而避免 UnhandledSchemeError）。Edge Runtime（Cloudflare
+ * Pages / Workers）无此能力，返回 null，调用方走主机名特征校验降级。
+ */
+function getNodeDnsLookup(): DnsLookupFn | null {
+  try {
+    const proc = process as unknown as { getBuiltinModule?: (name: string) => unknown };
+    if (typeof proc.getBuiltinModule === 'function') {
+      const dnsMod = proc.getBuiltinModule('node:dns/promises') as { lookup?: DnsLookupFn } | undefined;
+      if (dnsMod && typeof dnsMod.lookup === 'function') return dnsMod.lookup.bind(dnsMod);
+    }
+  } catch {
+    // 环境不支持时忽略，走降级路径
+  }
+  return null;
+}
+
+/**
+ * DNS 解析后校验目标主机名是否解析到内网/保留地址。
+ * - Node 环境：保持原有 dns.lookup 解析校验；
+ * - Edge Runtime：无法做域名解析，降级为「内网语义主机名」特征拦截，
+ *   字面量 IP 仍由 isPrivateIP 严格校验（域名解析到内网 IP 的场景在 Edge 无法检测）。
+ */
 export async function isBlockedByDNS(urlString: string): Promise<boolean> {
   try {
     const hostname = stripBrackets(new URL(urlString).hostname);
     if (/^\d{1,3}(\.\d{1,3}){3}$/.test(hostname) || hostname.includes(':')) {
       return isPrivateIP(hostname);
     }
-    const result = await dns.lookup(hostname, { all: true });
+    const lookup = getNodeDnsLookup();
+    if (!lookup) {
+      return PRIVATE_HOSTNAME_PATTERN.test(hostname);
+    }
+    const result = await lookup(hostname, { all: true });
     return result.some((r) => isPrivateIP(r.address));
   } catch {
     return false; // 解析失败不阻断，交给后续请求处理

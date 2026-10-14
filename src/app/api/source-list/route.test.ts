@@ -1,6 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GET } from './route';
-import { SESSION_COOKIE, signSession } from '@/lib/auth';
+import { SESSION_COOKIE } from '@/lib/auth';
+import crypto from 'node:crypto';
 
 /**
  * 订阅接口单测：格式自动识别（LibreTV-SourceList / TVBOX）、统计透传，
@@ -45,8 +46,18 @@ async function readJson(res: Response): Promise<SubPayload> {
   return (await res.json()) as SubPayload;
 }
 
+/** 测试夹具：与 auth.ts 派生逻辑一致地同步构造合法会话 token（Node 环境专用） */
+function signTestToken(): string {
+  const expiresAt = Date.now() + 90 * 24 * 60 * 60 * 1000;
+  const payload = String(expiresAt);
+  const secret = process.env.PROXY_SECRET
+    || crypto.createHash('sha256').update((process.env.PASSWORD || '') + ':libretv::session-salt').digest('hex');
+  const sig = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+  return `${payload}.${sig}`;
+}
+
 function makeRequest(subUrl = 'https://feed.example.com/subscription.json'): Request {
-  const { token } = signSession();
+  const token = signTestToken();
   const sp = new URLSearchParams({ url: subUrl });
   return new Request(`https://local.test/api/source-list?${sp.toString()}`, {
     headers: { cookie: `${SESSION_COOKIE}=${token}` },

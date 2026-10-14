@@ -1,6 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { POST } from './route';
-import { SESSION_COOKIE, signSession } from '@/lib/auth';
+import { SESSION_COOKIE } from '@/lib/auth';
+import crypto from 'node:crypto';
 
 /**
  * 发布接口单测：登录守卫、字段白名单与条数上限。
@@ -22,10 +23,20 @@ vi.mock('@/lib/source-list-publish', () => ({
   }),
 }));
 
+/** 测试夹具：与 auth.ts 派生逻辑一致地同步构造合法会话 token（Node 环境专用） */
+function signTestToken(): string {
+  const expiresAt = Date.now() + 90 * 24 * 60 * 60 * 1000;
+  const payload = String(expiresAt);
+  const secret = process.env.PROXY_SECRET
+    || crypto.createHash('sha256').update((process.env.PASSWORD || '') + ':libretv::session-salt').digest('hex');
+  const sig = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+  return `${payload}.${sig}`;
+}
+
 function makeRequest(body: unknown, options?: { authenticated?: boolean }): Request {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (options?.authenticated !== false) {
-    headers.cookie = `${SESSION_COOKIE}=${signSession().token}`;
+    headers.cookie = `${SESSION_COOKIE}=${signTestToken()}`;
   }
   return new Request('https://local.test/api/publish', {
     method: 'POST',

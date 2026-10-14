@@ -54,8 +54,8 @@ describe('parseXmltvTime', () => {
 });
 
 describe('parseXmltv', () => {
-  it('解析明文 XML 并按频道索引、排序、裁剪窗口', () => {
-    const map = parseXmltv(SAMPLE, 24 * 60 * 60 * 1000, NOW);
+  it('解析明文 XML 并按频道索引、排序、裁剪窗口', async () => {
+    const map = await parseXmltv(SAMPLE, 24 * 60 * 60 * 1000, NOW);
     const cctv1 = map.get('cctv1')!;
     expect(cctv1).toHaveLength(3); // 已播完的被裁剪；午夜场在 24h 窗口内保留
     expect(cctv1.map((p) => p.title)).toEqual(['新闻30分', '电视剧: 焦点访谈', '午夜场']);
@@ -65,49 +65,49 @@ describe('parseXmltv', () => {
     }
   });
 
-  it('CDATA 与描述解析', () => {
-    const map = parseXmltv(SAMPLE, undefined, NOW);
+  it('CDATA 与描述解析', async () => {
+    const map = await parseXmltv(SAMPLE, undefined, NOW);
     expect(map.get('cctv1')![1].title).toBe('电视剧: 焦点访谈');
     expect(map.get('cctv1')![0].desc).toBe('午间新闻');
   });
 
-  it('窗口外的未来节目被裁剪', () => {
-    const map = parseXmltv(SAMPLE, 60 * 60 * 1000, NOW); // 只看 [12:00, 13:00)
+  it('窗口外的未来节目被裁剪', async () => {
+    const map = await parseXmltv(SAMPLE, 60 * 60 * 1000, NOW); // 只看 [12:00, 13:00)
     const cctv1 = map.get('cctv1')!;
     // 焦点访谈 14:00 开始，在窗口外
     expect(cctv1.map((p) => p.title)).toEqual(['新闻30分']);
   });
 
-  it('解析 gzip 压缩内容', () => {
+  it('解析 gzip 压缩内容', async () => {
     const compressed = gzipSync(Buffer.from(SAMPLE, 'utf8'));
     expect(compressed[0]).toBe(0x1f);
     expect(compressed[1]).toBe(0x8b);
-    const map = parseXmltv(compressed, undefined, NOW);
+    const map = await parseXmltv(compressed, undefined, NOW);
     expect(map.get('cctv1')).toHaveLength(3);
     expect(map.get('cctv5')).toHaveLength(1);
   });
 
-  it('Buffer 明文输入同样可解析', () => {
-    const map = parseXmltv(Buffer.from(SAMPLE, 'utf8'), undefined, NOW);
+  it('Buffer 明文输入同样可解析', async () => {
+    const map = await parseXmltv(Buffer.from(SAMPLE, 'utf8'), undefined, NOW);
     expect(map.size).toBe(2);
   });
 
-  it('空输入与畸形内容不抛错', () => {
-    expect(parseXmltv('', undefined, NOW).size).toBe(0);
-    expect(parseXmltv('<tv><programme channel="x" start="bad" stop="bad"><title>t</title></programme></tv>', undefined, NOW).size).toBe(0);
+  it('空输入与畸形内容不抛错', async () => {
+    expect((await parseXmltv('', undefined, NOW)).size).toBe(0);
+    expect((await parseXmltv('<tv><programme channel="x" start="bad" stop="bad"><title>t</title></programme></tv>', undefined, NOW)).size).toBe(0);
   });
 });
 
 describe('currentAndNext', () => {
-  const programs = parseXmltv(SAMPLE, undefined, NOW).get('cctv1')!;
-
-  it('正确定位当前与下一个节目', () => {
+  it('正确定位当前与下一个节目', async () => {
+    const programs = (await parseXmltv(SAMPLE, undefined, NOW)).get('cctv1')!;
     const { current, next } = currentAndNext(programs, NOW);
     expect(current?.title).toBe('新闻30分');
     expect(next?.title).toBe('电视剧: 焦点访谈');
   });
 
-  it('节目间隙时 current 为空、next 为下一档', () => {
+  it('节目间隙时 current 为空、next 为下一档', async () => {
+    const programs = (await parseXmltv(SAMPLE, undefined, NOW)).get('cctv1')!;
     const gap = Date.UTC(2024, 5, 1, 14, 30, 0); // 焦点访谈(14:00-15:00) 实际覆盖该点；改用末尾之后
     const { current, next } = currentAndNext(programs, gap);
     expect(current?.title).toBe('电视剧: 焦点访谈');

@@ -20,7 +20,7 @@ const WINDOW_MS = 24 * 60 * 60 * 1000;
  * 解析结果（按频道索引、24h 时间窗裁剪）整体缓存 6 小时；单频道按需查询。
  */
 export async function GET(req: Request) {
-  const guarded = guardRequest(req);
+  const guarded = await guardRequest(req);
   if (guarded) return guarded;
 
   const sp = new URL(req.url).searchParams;
@@ -43,8 +43,8 @@ export async function GET(req: Request) {
         return jsonError(`节目单地址请求失败: ${res.status}`, 502);
       }
       // gzip 由 parseXmltv 内识别（fetch 对 .gz 不会自动解压）
-      const buf = Buffer.from(await res.arrayBuffer());
-      programMap = parseXmltv(buf, WINDOW_MS);
+      const buf = new Uint8Array(await res.arrayBuffer());
+      programMap = await parseXmltv(buf, WINDOW_MS);
       setLiveCache(key, programMap, CACHE_TTL_MS, buf.byteLength * 2);
     } catch (err) {
       return jsonError(`节目单地址请求失败: ${err instanceof Error ? err.message : '未知错误'}`, 502);

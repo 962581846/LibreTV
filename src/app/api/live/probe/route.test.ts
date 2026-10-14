@@ -1,6 +1,7 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { POST } from './route';
-import { SESSION_COOKIE, signSession } from '@/lib/auth';
+import { SESSION_COOKIE } from '@/lib/auth';
+import crypto from 'node:crypto';
 
 /**
  * 测活接口单测：流式 NDJSON、codec 解析、内容校验、结果缓存、内网放行。
@@ -39,8 +40,18 @@ function mockUpstream(): { fn: ReturnType<typeof vi.fn> } {
   return { fn };
 }
 
+/** 测试夹具：与 auth.ts 派生逻辑一致地同步构造合法会话 token（Node 环境专用） */
+function signTestToken(): string {
+  const expiresAt = Date.now() + 90 * 24 * 60 * 60 * 1000;
+  const payload = String(expiresAt);
+  const secret = process.env.PROXY_SECRET
+    || crypto.createHash('sha256').update((process.env.PASSWORD || '') + ':libretv::session-salt').digest('hex');
+  const sig = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+  return `${payload}.${sig}`;
+}
+
 function makeRequest(urls: string[], stream: boolean): Request {
-  const { token } = signSession();
+  const token = signTestToken();
   return new Request(`https://local.test/api/live/probe${stream ? '?stream=1' : ''}`, {
     method: 'POST',
     headers: {
