@@ -317,7 +317,17 @@ export function LivePlayer({ url, title, onPrevChannel, onNextChannel }: LivePla
       moreVideoAttr: { playsInline: true },
       customType: {
         m3u8: (video: HTMLVideoElement) => {
+          // http 流在 https 页面属混合内容，浏览器必定拦截：直接走代理通道，省掉一次必然失败的重试
+        const isInsecureOnHttps =
+          url.startsWith('http://') &&
+          typeof window !== 'undefined' &&
+          window.location.protocol === 'https:';
+        if (isInsecureOnHttps) {
+          showHint('http 源，经本站代理播放');
+          setupHls(video, proxyUrl(url), 'proxy');
+        } else {
           setupHls(video, url, 'direct');
+        }
         },
         flv: (video: HTMLVideoElement) => {
           void setupFlv(video, url, true);
