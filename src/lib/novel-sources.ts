@@ -10,9 +10,10 @@
 
 import { clearNovelCache as czClearCache, fetchNovelBook as czFetchBook, fetchNovelChapter as czFetchChapter, searchNovel as czSearch } from './novel-source';
 import { bgClearNovelCache, bgFetchNovelBook, bgFetchNovelChapter, bgSearchNovel } from './novel-biquge365';
+import { shClearNovelCache, shFetchNovelBook, shFetchNovelChapter, shSearchNovel } from './novel-shuhaige';
 import type { NovelBook, NovelChapter, NovelSearchItem } from './types';
 
-export type NovelSourceId = 'biquge365' | 'czbooks';
+export type NovelSourceId = 'shuhaige' | 'biquge365' | 'czbooks';
 export type NovelSearchBy = 'articlename' | 'author';
 
 export interface NovelSourceInfo {
@@ -27,6 +28,16 @@ export interface NovelSourceAdapter extends NovelSourceInfo {
   chapter(bookId: string, chapterId: string): Promise<NovelChapter>;
   matchesId(id: string): boolean;
 }
+
+const shuhaige: NovelSourceAdapter = {
+  id: 'shuhaige',
+  label: '书海阁（干净）',
+  note: 'book.washai.net，正文是起点原稿，无防盗乱码，目录分页抓全',
+  search: (keyword, by = 'articlename') => shSearchNovel(keyword, by),
+  book: (id) => shFetchNovelBook(id),
+  chapter: (bookId, chapterId) => shFetchNovelChapter(bookId, chapterId),
+  matchesId: (id) => /^\d{13,20}$/.test(id),
+};
 
 const biquge365: NovelSourceAdapter = {
   id: 'biquge365',
@@ -49,9 +60,9 @@ const czbooks: NovelSourceAdapter = {
 };
 
 /** 搜索时的默认尝试顺序：先境内（不容易被墙），再境外（正文更干净） */
-export const DEFAULT_SOURCE_ORDER: NovelSourceId[] = ['biquge365', 'czbooks'];
+export const DEFAULT_SOURCE_ORDER: NovelSourceId[] = ['shuhaige', 'biquge365', 'czbooks'];
 
-export const NOVEL_SOURCES: NovelSourceAdapter[] = [biquge365, czbooks];
+export const NOVEL_SOURCES: NovelSourceAdapter[] = [shuhaige, biquge365, czbooks];
 
 export function listNovelSources(): NovelSourceInfo[] {
   return NOVEL_SOURCES.map(({ id, label, note }) => ({ id, label, note }));
@@ -69,6 +80,7 @@ export function inferNovelSource(bookId: string): NovelSourceAdapter | undefined
 export function clearAllNovelCaches(): void {
   czClearCache();
   bgClearNovelCache();
+  shClearNovelCache();
 }
 
 export interface NovelSourceFailure {

@@ -18,6 +18,7 @@ const SRC_KEY = 'libretv:novel:src';
 /** 源下拉选项：与 src/lib/novel-sources.ts 的注册表保持一致（不 import 服务端模块，避免把抓取代码打进前端包） */
 const SOURCE_OPTIONS = [
   { id: 'auto', label: '自动选源' },
+  { id: 'shuhaige', label: '书海阁(干净)' },
   { id: 'biquge365', label: '笔趣阁(境内)' },
   { id: 'czbooks', label: '小說狂人(境外)' },
 ] as const;
@@ -25,6 +26,12 @@ const SOURCE_OPTIONS = [
 function sourceLabel(id: string): string {
   const option = SOURCE_OPTIONS.find((o) => o.id === id);
   return option?.label ?? id;
+}
+
+/** 外站封面走本站代理：源站做了 referer 校验/防盗链，直连会变成破图 */
+function coverSrc(url: string): string {
+  if (!/^https?:\/\//i.test(url)) return url;
+  return `/api/proxy?url=${encodeURIComponent(url)}`;
 }
 
 /** 目录一次渲染多少章 */
@@ -553,7 +560,7 @@ function BookIntro({
     <div className="card p-5 flex gap-4">
       {book.cover ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={book.cover} alt={book.name} className="w-24 h-32 object-cover rounded-md bg-chip shrink-0" loading="lazy" />
+        <img src={coverSrc(book.cover)} alt={book.name} className="w-24 h-32 object-cover rounded-md bg-chip shrink-0" loading="lazy" />
       ) : null}
       <div className="min-w-0">
         <h1 className="text-lg font-semibold truncate">{book.name}</h1>
