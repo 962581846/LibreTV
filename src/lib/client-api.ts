@@ -263,19 +263,24 @@ export const api = {
     await consumeNdjson<LiveProbeResult>(res, onResult);
   },
   /** 小说搜索（笔趣阁源）：by=articlename 按书名，author 按作者 */
-  novelSearch: (keyword: string, by: 'articlename' | 'author' = 'articlename', signal?: AbortSignal) => {
-    const sp = new URLSearchParams({ kw: keyword, by });
-    return request<{ keyword: string; by: string; items: NovelSearchItem[] }>(`/api/novel/search?${sp.toString()}`, { signal });
+  novelSearch: (keyword: string, by: 'articlename' | 'author' = 'articlename', src = 'auto', signal?: AbortSignal) => {
+    const sp = new URLSearchParams({ kw: keyword, by, src });
+    return request<{ keyword: string; by: string; source: string | null; items: NovelSearchItem[]; errors?: { source: string; message: string }[]; sources?: { id: string; label: string; note: string }[] }>(
+      `/api/novel/search?${sp.toString()}`,
+      { signal }
+    );
   },
 
   /** 小说书籍详情 + 全量目录 */
-  novelBook: (id: string, signal?: AbortSignal) =>
-    request<NovelBook>(`/api/novel/book?id=${encodeURIComponent(id)}`, { signal }),
+  novelBook: (id: string, src = 'auto', signal?: AbortSignal) => {
+    const sp = new URLSearchParams({ id, src });
+    return request<NovelBook & { source?: string }>(`/api/novel/book?${sp.toString()}`, { signal });
+  },
 
   /** 小说单章正文（含上下章 ID） */
-  novelChapter: (bookId: string, chapterId: string, signal?: AbortSignal) => {
-    const sp = new URLSearchParams({ bid: bookId, cid: chapterId });
-    return request<NovelChapter>(`/api/novel/chapter?${sp.toString()}`, { signal });
+  novelChapter: (bookId: string, chapterId: string, src = 'auto', signal?: AbortSignal) => {
+    const sp = new URLSearchParams({ bid: bookId, cid: chapterId, src });
+    return request<NovelChapter & { source?: string }>(`/api/novel/chapter?${sp.toString()}`, { signal });
   },
 };
 

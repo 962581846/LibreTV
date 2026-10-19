@@ -13,6 +13,14 @@ import { cn } from '@/lib/utils';
 const RECENT_KEY = 'libretv:novel:recent:v2';
 /** 阅读字号（本地记忆） */
 const FONT_KEY = 'libretv:novel:font';
+/** 选中的小说源（本地记忆，auto 表示自动选源） */
+const SRC_KEY = 'libretv:novel:src';
+/** 源下拉选项：与 src/lib/novel-sources.ts 的注册表保持一致（不 import 服务端模块，避免把抓取代码打进前端包） */
+const SOURCE_OPTIONS = [
+  { id: 'auto', label: '自动选源' },
+  { id: 'biquge365', label: '笔趣阁(境内)' },
+  { id: 'czbooks', label: '小說狂人(境外)' },
+] as const;
 /** 目录一次渲染多少章 */
 const PAGE_SIZE = 200;
 
@@ -79,6 +87,11 @@ function NovelContent() {
 
   const [input, setInput] = useState('');
   const [by, setBy] = useState<'articlename' | 'author'>('articlename');
+  // 下拉里的选择：auto 表示让服务端按顺序试；不因命中某个源而改写，避免下次失去回退能力
+  const [src, setSrc] = useState<string>('auto');
+  // 本次搜索实际命中的源：目录/正文沿用同一个源，避免跨源 ID 混用
+  const [pinnedSrc, setPinnedSrc] = useState<string>('');
+  const effSrc = pinnedSrc || src;
   const [kw, setKw] = useState('');
   const [recent, setRecent] = useState<RecentItem[]>([]);
   const [fontSize, setFontSize] = useState(18);
@@ -89,31 +102,41 @@ function NovelContent() {
     setRecent(readRecent());
     const saved = Number(window.localStorage.getItem(FONT_KEY) ?? '');
     if (saved >= 14 && saved <= 30) setFontSize(saved);
+    const savedSrc = window.localStorage.getItem(SRC_KEY);
+    if (savedSrc && SOURCE_OPTIONS.some((o) => o.id === savedSrc)) setSrc(savedSrc);
   }, []);
 
   useEffect(() => {
     window.localStorage.setItem(FONT_KEY, String(fontSize));
   }, [fontSize]);
 
+  useEffect(() => {
+    window.localStorage.setItem(SRC_KEY, src);
+  }, [src]);
+
+  useEffect(() => {
+    srcRef.current = effSrc;
+  }, [effSrc]);
+
   const searchQuery = useQuery({
-    queryKey: ['novel-search', kw, by],
-    queryFn: ({ signal }) => api.novelSearch(kw, by, signal),
+    queryKey: ['novel-search', kw, by, src],
+    queryFn: ({ signal }) => api.novelSearch(kw, by, src, signal),
     enabled: kw.length > 0,
     staleTime: 5 * 60 * 1000,
     retry: 0,
   });
 
   const bookQuery = useQuery({
-    queryKey: ['novel-book', bookId],
-    queryFn: ({ signal }) => api.novelBook(bookId, signal),
+    queryKey: ['novel-book', bookId, effSrc],
+    queryFn: ({ signal }) => api.novelBook(bookId, effSrc, signal),
     enabled: bookId.length > 0,
     staleTime: 30 * 60 * 1000,
     retry: 0,
   });
 
   const chapterQuery = useQuery({
-    queryKey: ['novel-chapter', bookId, chapterId],
-    queryFn: ({ signal }) => api.novelChapter(bookId, chapterId, signal),
+    queryKey: ['novel-chapter', bookId, chapterId, effSrc],
+    queryFn: ({ signal }) => api.novelChapter(bookId, chapterId, effSrc, signal),
     enabled: bookId.length > 0 && chapterId.length > 0,
     staleTime: 10 * 60 * 1000,
     retry: 0,
@@ -121,6 +144,12 @@ function NovelContent() {
 
   const book = bookQuery.data;
   const chapter = chapterQuery.data;
+
+  // 自动选源搜到结果后，记住实际命中的源供目录/正文复用
+  useEffect(() => {
+    const hit = searchQuery.data?.source;
+    if (hit) setPinnedSrc(hit);
+  }, [searchQuery.data?.source]);
 
   // 打开正文即写入最近阅读（含章节标题，便于书架直接跳回）
   useEffect(() => {
@@ -150,6 +179,8 @@ function NovelContent() {
   // 因此这里从 600ms 起步，撞到 429 就翻倍放慢（上限 4s），连续顺利再慢慢收回。
   const [download, setDownload] = useState<{ done: number; failed: number; total: number } | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  // 下载循环里要读「当前生效的源」，用 ref 避免闭包拿到旧值
+  const srcRef = useRef(effSrc);
 
   const cancelDownload = useCallback(() => {
     abortRef.current?.abort();
@@ -178,7 +209,7 @@ function NovelContent() {
         if (attempt > 0) await sleep(gapMs);
         if (controller.signal.aborted) break;
         try {
-          const ch = await api.novelChapter(target.id, ref.id, controller.signal);
+          const ch = await api.novelChapter(target.id, ref.id, srcRef.current, controller.signal);
           text = `${ch.title}\n\n${ch.content}`;
           streak += 1;
           // 连续顺利就慢慢提速，逼近源站能接受的节奏
@@ -275,6 +306,21 @@ function NovelContent() {
             >
               <option value="articlename">书名</option>
               <option value="author">作者</option>
+            </select>
+            <select
+              className="input h-9"
+              value={src}
+              onChange={(e) => {
+                setSrc(e.target.value);
+                setPinnedSrc('');
+              }}
+              aria-label="小说源"
+            >
+              {SOURCE_OPTIONS.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
             </select>
             <button type="submit" className="btn-primary h-9 px-4" disabled={searchQuery.isFetching}>
               {searchQuery.isFetching ? '搜索中…' : '搜索'}
