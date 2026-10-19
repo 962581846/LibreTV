@@ -76,9 +76,13 @@ export interface NovelSourceFailure {
   message: string;
 }
 
+export interface NovelSearchHit extends NovelSearchItem {
+  source: NovelSourceId;
+}
+
 export interface NovelSearchResult {
   source: NovelSourceId | null;
-  items: NovelSearchItem[];
+  items: NovelSearchHit[];
   errors: NovelSourceFailure[];
 }
 
@@ -92,22 +96,69 @@ function orderOf(preferred?: NovelSourceId | null): NovelSourceAdapter[] {
   return first ? [first, ...rest] : NOVEL_SOURCES;
 }
 
-/** 依次尝试各个源；第一个返回非空结果的源胜出，其它源的失败原因汇总返回 */
+/**
+ * 搜全部源并合并：单个源限流/403 只丢它自己，其它源照样出结果。
+ * 结果按相关度排序（书名全等 > 前缀 > 包含），同书名同作者只留一条。
+ */
+export async function searchNovelAggregate(
+  keyword: string,
+  by: NovelSearchBy = 'articlename',
+  preferred?: NovelSourceId | null
+): Promise<NovelSearchResult> {
+  const targets = orderOf(preferred);
+  const errors: NovelSourceFailure[] = [];
+  const settled = await Promise.all(
+    targets.map(async (source) => {
+      try {
+        const items = await source.search(keyword, by);
+        return { source, items };
+      } catch (error) {
+        errors.push({ source: source.id, message: errorMessage(error) });
+        return { source, items: [] as NovelSearchHit[] };
+      }
+    })
+  );
+
+  const wanted = normalizeNovelText(keyword);
+  const seen = new Set<string>();
+  const hits: NovelSearchHit[] = [];
+  for (const { source, items } of settled) {
+    for (const item of items) {
+      const name = normalizeNovelText(item.name);
+      const author = normalizeNovelText(item.author ?? '');
+      const key = name + '|' + author;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      hits.push({ ...item, source: source.id });
+    }
+  }
+
+  const score = (hit: NovelSearchHit): number => {
+    const name = normalizeNovelText(hit.name);
+    const author = normalizeNovelText(hit.author ?? '');
+    let value = 20;
+    if (name === wanted) value = 100;
+    else if (name.startsWith(wanted)) value = 80;
+    else if (name.includes(wanted)) value = 60;
+    if (author && author === wanted) value += 10;
+    return value;
+  };
+
+  hits.sort((a, b) => score(b) - score(a));
+  return { source: hits.length ? hits[0].source : null, items: hits, errors };
+}
+
+function normalizeNovelText(text: string): string {
+  return text.replace(/\s+/g, '').toLowerCase();
+}
+
+/** 兼容旧调用：语义上等同于聚合搜索（保留导出名，避免调用方改动） */
 export async function searchNovelAcross(
   keyword: string,
   by: NovelSearchBy = 'articlename',
   preferred?: NovelSourceId | null
 ): Promise<NovelSearchResult> {
-  const errors: NovelSourceFailure[] = [];
-  for (const source of orderOf(preferred)) {
-    try {
-      const items = await source.search(keyword, by);
-      if (items.length) return { source: source.id, items, errors };
-    } catch (error) {
-      errors.push({ source: source.id, message: errorMessage(error) });
-    }
-  }
-  return { source: null, items: [], errors };
+  return searchNovelAggregate(keyword, by, preferred);
 }
 
 export async function fetchNovelBookAuto(id: string, src?: string | null): Promise<{ source: NovelSourceId; book: NovelBook }> {
@@ -125,7 +176,11 @@ export async function fetchNovelBookAuto(id: string, src?: string | null): Promi
   throw new Error(errors[0] ?? '没有找到这本书，换个源试试');
 }
 
-export async function fetchNovelChapterAuto(bookId: string, chapterId: string, src?: string | null): Promise<{ source: NovelSourceId; chapter: NovelChapter }> {
+export async function fetchNovelChapterAuto(
+  bookId: string,
+  chapterId: string,
+  src?: string | null
+): Promise<{ source: NovelSourceId; chapter: NovelChapter }> {
   const preferred = getNovelSource(src) ?? inferNovelSource(bookId);
   const errors: string[] = [];
   for (const source of orderOf(preferred?.id)) {

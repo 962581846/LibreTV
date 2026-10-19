@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { guardRequest, jsonError } from '@/lib/api-guard';
-import { getNovelSource, listNovelSources, searchNovelAcross, type NovelSourceId } from '@/lib/novel-sources';
+import { getNovelSource, listNovelSources, searchNovelAggregate } from '@/lib/novel-sources';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,10 +22,10 @@ export async function GET(req: Request) {
     if (srcParam && srcParam !== 'auto') {
       const source = getNovelSource(srcParam);
       if (!source) return jsonError(`未知的小说源: ${srcParam}`, 400);
-      const items = await source.search(keyword, by);
+      const items = (await source.search(keyword, by)).map((item) => ({ ...item, source: source.id }));
       return NextResponse.json({ keyword, by, source: source.id, items, sources: listNovelSources() });
     }
-    const result = await searchNovelAcross(keyword, by);
+    const result = await searchNovelAggregate(keyword, by);
     if (!result.items.length) {
       const detail = result.errors.map((e) => `${e.source}: ${e.message}`).join('; ');
       return jsonError(`所有小说源都没有结果${detail ? `（${detail}）` : ''}`, 502);
@@ -33,7 +33,7 @@ export async function GET(req: Request) {
     return NextResponse.json({
       keyword,
       by,
-      source: result.source as NovelSourceId,
+      source: result.source,
       items: result.items,
       errors: result.errors,
       sources: listNovelSources(),

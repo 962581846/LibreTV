@@ -214,6 +214,8 @@ export interface NovelSearchItem {
   /** 最新章节标题，便于判断是否在更新 */
   latestChapter?: string;
   updatedAt?: string;
+  /** 来源小说源 ID（聚合搜索时逐条标记） */
+  source?: string;
 }
 
 /** 目录中的一章 */

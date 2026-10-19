@@ -21,6 +21,12 @@ const SOURCE_OPTIONS = [
   { id: 'biquge365', label: '笔趣阁(境内)' },
   { id: 'czbooks', label: '小說狂人(境外)' },
 ] as const;
+/** 源 id → 展示名（结果行徽标用） */
+function sourceLabel(id: string): string {
+  const option = SOURCE_OPTIONS.find((o) => o.id === id);
+  return option?.label ?? id;
+}
+
 /** 目录一次渲染多少章 */
 const PAGE_SIZE = 200;
 
@@ -29,6 +35,7 @@ type NovelBookData = Awaited<ReturnType<typeof api.novelBook>>;
 
 interface RecentItem {
   id: string;
+  src?: string;
   name: string;
   chapterId: string;
   chapterTitle: string;
@@ -102,9 +109,11 @@ function NovelContent() {
     setRecent(readRecent());
     const saved = Number(window.localStorage.getItem(FONT_KEY) ?? '');
     if (saved >= 14 && saved <= 30) setFontSize(saved);
+    const urlSrc = searchParams.get('src');
+    if (urlSrc && SOURCE_OPTIONS.some((o) => o.id === urlSrc)) setPinnedSrc(urlSrc);
     const savedSrc = window.localStorage.getItem(SRC_KEY);
     if (savedSrc && SOURCE_OPTIONS.some((o) => o.id === savedSrc)) setSrc(savedSrc);
-  }, []);
+  }, [searchParams]);
 
   useEffect(() => {
     window.localStorage.setItem(FONT_KEY, String(fontSize));
@@ -154,21 +163,25 @@ function NovelContent() {
   // 打开正文即写入最近阅读（含章节标题，便于书架直接跳回）
   useEffect(() => {
     if (!chapter || !book) return;
-    setRecent(writeRecent({ id: book.id, name: book.name, chapterId: chapter.id, chapterTitle: chapter.title, ts: Date.now() }));
-  }, [chapter, book]);
+    setRecent(writeRecent({ id: book.id, src: effSrc || undefined, name: book.name, chapterId: chapter.id, chapterTitle: chapter.title, ts: Date.now() }));
+  }, [chapter, book, effSrc]);
 
   const openBook = useCallback(
-    (id: string) => {
+    (id: string, src?: string) => {
       setCatalogFilter('');
       setShown(PAGE_SIZE);
-      router.push(`/novel?id=${encodeURIComponent(id)}`, { scroll: false });
+      if (src) setPinnedSrc(src);
+      const suffix = src ? `&src=${encodeURIComponent(src)}` : '';
+      router.push(`/novel?id=${encodeURIComponent(id)}${suffix}`, { scroll: false });
     },
     [router]
   );
 
   const openChapter = useCallback(
-    (id: string, cid: string) => {
-      router.push(`/novel?id=${encodeURIComponent(id)}&c=${encodeURIComponent(cid)}`, { scroll: false });
+    (id: string, cid: string, src?: string) => {
+      if (src) setPinnedSrc(src);
+      const suffix = src ? `&src=${encodeURIComponent(src)}` : '';
+      router.push(`/novel?id=${encodeURIComponent(id)}&c=${encodeURIComponent(cid)}${suffix}`, { scroll: false });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     },
     [router]
@@ -518,7 +531,7 @@ function BookIntro({
   downloading,
 }: {
   bookQuery: ReturnType<typeof useQuery<Awaited<ReturnType<typeof api.novelBook>>>>;
-  onOpenChapter: (bookId: string, chapterId: string) => void;
+  onOpenChapter: (bookId: string, chapterId: string, src?: string) => void;
   onDownload: (book: NovelBookData | undefined) => void;
   downloading: boolean;
 }) {
@@ -572,7 +585,7 @@ function SearchResults({
   keyword,
 }: {
   query: ReturnType<typeof useQuery<Awaited<ReturnType<typeof api.novelSearch>>>>;
-  onOpenBook: (id: string) => void;
+  onOpenBook: (id: string, src?: string) => void;
   keyword: string;
 }) {
   if (query.isLoading) {
@@ -595,12 +608,15 @@ function SearchResults({
         <li key={item.id}>
           <button
             type="button"
-            onClick={() => onOpenBook(item.id)}
+            onClick={() => onOpenBook(item.id, item.source)}
             className="card w-full text-left p-3 hover:border-accent transition-colors"
           >
             <div className="flex items-center gap-2">
               <span className="font-medium truncate">{item.name}</span>
               {item.category && <span className="chip bg-chip text-muted shrink-0">{item.category}</span>}
+              {item.source && (
+                <span className="chip bg-chip text-muted shrink-0">{sourceLabel(item.source)}</span>
+              )}
             </div>
             <p className="text-xs text-muted mt-1 truncate">
               {item.author}
@@ -619,7 +635,7 @@ function EmptyState({
   onOpenChapter,
 }: {
   recent: RecentItem[];
-  onOpenChapter: (bookId: string, chapterId: string) => void;
+  onOpenChapter: (bookId: string, chapterId: string, src?: string) => void;
 }) {
   return (
     <div className="card p-6">
@@ -633,7 +649,7 @@ function EmptyState({
           <ul className="space-y-1 text-sm">
             {recent.slice(0, 5).map((item) => (
               <li key={`${item.id}-${item.chapterId}`}>
-                <button type="button" className="text-accent hover:underline" onClick={() => onOpenChapter(item.id, item.chapterId)}>
+                <button type="button" className="text-accent hover:underline" onClick={() => onOpenChapter(item.id, item.chapterId, item.src)}>
                   {item.name} · {item.chapterTitle}
                 </button>
               </li>
