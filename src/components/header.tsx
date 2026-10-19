@@ -38,7 +38,7 @@ export function Header({ showSearch = false }: { showSearch?: boolean }) {
   return (
     <>
       <header className="sticky top-0 z-40 bg-surface/90 backdrop-blur border-b border-line">
-        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center gap-3">
+        <div className="max-w-6xl mx-auto px-3 sm:px-4 h-14 flex items-center gap-2 sm:gap-3">
           <Link href="/" aria-label="LibreTV 首页" className="flex items-center shrink-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/icons/icon-512.png" alt="LibreTV" className="w-7 h-7 rounded-lg" />
@@ -96,15 +96,12 @@ export function Header({ showSearch = false }: { showSearch?: boolean }) {
 
           <div className="flex-1 sm:hidden" />
 
-          <nav className="flex items-center gap-1 ml-auto">
+          <nav className="flex items-center gap-0.5 sm:gap-1 ml-auto shrink-0">
             <HeaderLink href="/live" active={pathname === '/live'}>
               直播
             </HeaderLink>
             <HeaderLink href="/novel" active={pathname === '/novel'}>
               小说
-            </HeaderLink>
-            <HeaderLink href="/about" active={pathname === '/about'}>
-              关于
             </HeaderLink>
             <ThemeToggle />
             <IconButton label="观看历史" onClick={() => setHistoryOpen(true)}>
@@ -131,7 +128,7 @@ function HeaderLink({ href, active, children }: { href: string; active: boolean;
     <Link
       href={href}
       className={cn(
-        'px-2.5 py-1.5 rounded-md text-sm transition-colors',
+        'px-2 sm:px-2.5 py-1.5 rounded-md text-[13px] sm:text-sm whitespace-nowrap transition-colors',
         active ? 'text-content bg-hover' : 'text-muted hover:text-content'
       )}
     >
@@ -143,7 +140,7 @@ function HeaderLink({ href, active, children }: { href: string; active: boolean;
 function IconButton({ label, onClick, children }: { label: string; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
-      className="p-2 rounded-md text-muted hover:text-content hover:bg-hover transition-colors"
+      className="p-1.5 sm:p-2 rounded-md text-muted hover:text-content hover:bg-hover transition-colors"
       title={label}
       aria-label={label}
       onClick={onClick}

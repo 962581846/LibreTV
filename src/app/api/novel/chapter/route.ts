@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { guardRequest, jsonError } from '@/lib/api-guard';
-import { fetchNovelChapter } from '@/lib/novel-source';
+import { fetchNovelChapter, isNovelId } from '@/lib/novel-source';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +11,7 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const bid = (searchParams.get('bid') ?? '').trim();
   const cid = (searchParams.get('cid') ?? '').trim();
-  if (!/^\d+$/.test(bid) || !/^\d+$/.test(cid)) return jsonError('章节参数非法', 400);
+  if (!isNovelId(bid) || !isNovelId(cid)) return jsonError('章节参数非法', 400);
   try {
     return NextResponse.json(await fetchNovelChapter(bid, cid));
   } catch (err) {

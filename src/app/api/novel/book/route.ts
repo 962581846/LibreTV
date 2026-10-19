@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { guardRequest, jsonError } from '@/lib/api-guard';
-import { fetchNovelBook } from '@/lib/novel-source';
+import { fetchNovelBook, isNovelId } from '@/lib/novel-source';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,7 +9,8 @@ export async function GET(req: Request) {
   const guarded = await guardRequest(req);
   if (guarded) return guarded;
   const id = (new URL(req.url).searchParams.get('id') ?? '').trim();
-  if (!/^\d+$/.test(id)) return jsonError('书籍 ID 非法', 400);
+  // czbooks 的书籍 ID 是字母数字（如 uj4ib），不是纯数字
+  if (!isNovelId(id)) return jsonError('书籍 ID 非法', 400);
   try {
     return NextResponse.json(await fetchNovelBook(id));
   } catch (err) {

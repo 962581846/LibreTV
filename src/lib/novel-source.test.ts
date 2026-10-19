@@ -3,13 +3,13 @@ import {
   chapterNumber,
   clearNovelCache,
   decodeEntities,
-  metaContent,
   parseBookMetaHtml,
   parseChapterHtml,
   parseSearchHtml,
   parseTocHtml,
   stripTags,
 } from './novel-source';
+import { toSimplified } from './novel-t2s';
 
 describe('decodeEntities', () => {
   it('解码命名实体、数字实体与十六进制实体', () => {
@@ -22,169 +22,154 @@ describe('decodeEntities', () => {
 });
 
 describe('stripTags', () => {
-  it('去标签、解实体并压缩空白', () => {
-    expect(stripTags('  <span>斗破</span>\n 苍穹&nbsp; ')).toBe('斗破 苍穹');
+  it('去标签、压空白', () => {
+    expect(stripTags('<span>a</span>\n\n  b ')).toBe('a b');
   });
 });
 
-describe('metaContent', () => {
-  const html = '<meta property="og:novel:book_name" content="斗破苍穹" /><meta name="description" content="简介" />';
-
-  it('按 property 取值', () => {
-    expect(metaContent(html, 'og:novel:book_name')).toBe('斗破苍穹');
+describe('toSimplified', () => {
+  it('常用繁体字转简体，简体原样返回', () => {
+    expect(toSimplified('神秘複蘇，楊間厲鬼')).toBe('神秘复苏，杨间厉鬼');
+    expect(toSimplified('已经就是简体')).toBe('已经就是简体');
   });
 
-  it('也能按 name 取值（description 走这条路）', () => {
-    expect(metaContent(html, 'description')).toBe('简介');
-  });
-
-  it('缺失时返回 undefined', () => {
-    expect(metaContent(html, 'og:image')).toBeUndefined();
+  it('「著」按词区分：进行体转「着」，著名/著作仍是「著」', () => {
+    expect(toSimplified('他侧身躺著看手機，翻看著帖子')).toBe('他侧身躺着看手机，翻看着帖子');
+    expect(toSimplified('著名作家的著作')).toBe('著名作家的著作');
   });
 });
-
-describe('parseSearchHtml', () => {
-  const html = `<h2>搜索"斗破苍穹"的结果</h2><ul class="search">
-    <li class="fen"><span class="lei">类别</span></li>
-    <li><span class="lei"><a href="/sort/8_1/">[其他类型]</a></span><span class="name"><a href="/book/349642/" title="x">斗破苍穹之雷霆震碎</a></span><span class="jie"><a href="/chapter/349642/1.html">第625章 龙后</a></span><span class="zuo"><a href="/author/张三">张三</a></span><span class="time">08-31</span></li>
-    <li><span class="lei"><a href="/sort/3_1/">[都市言情]</a></span><span class="name"><a href="/book/672391/">斗破苍穹之无上神道</a></span><span class="jie"><a href="/chapter/672391/2.html">第1章 开始</a></span><span class="zuo"><a href="/author/李四">李四</a></span><span class="time">09-09</span></li>
-    <li><span class="lei"><a href="/sort/8_1/">[其他类型]</a></span><span class="name"><a href="/book/349642/">重复条目</a></span><span class="zuo"><a href="/author/张三">张三</a></span></li>
-  </ul>`;
-
-  it('抽取书籍 ID、书名、作者、分类、最新章节与更新时间', () => {
-    const items = parseSearchHtml(html);
-    expect(items).toHaveLength(2);
-    expect(items[0]).toMatchObject({
-      id: '349642',
-      name: '斗破苍穹之雷霆震碎',
-      author: '张三',
-      category: '其他类型',
-      latestChapter: '第625章 龙后',
-      updatedAt: '08-31',
-    });
-    expect(items[1].category).toBe('都市言情');
-  });
-
-  it('同一本书的重复条目只保留第一次出现', () => {
-    expect(parseSearchHtml(html).map((i) => i.id)).toEqual(['349642', '672391']);
-  });
-
-  it('无关 HTML 返回空数组', () => {
-    expect(parseSearchHtml('<div>nothing</div>')).toEqual([]);
-  });
-});
-
-describe('parseBookMetaHtml', () => {
-  const html = `<meta property="og:novel:book_name" content="斗破苍穹" />
-    <meta property="og:novel:author" content="天蚕土豆" />
-    <meta property="og:description" content="这里是属于斗气的世界" />
-    <meta property="og:image" content="https://www.biquge365.net/files/cover.jpg" />
-    <meta property="og:novel:category" content="其他类型" />
-    <meta property="og:novel:status" content="连载中" />`;
-
-  it('解析全部 og:novel 元信息', () => {
-    expect(parseBookMetaHtml(html, '63611')).toEqual({
-      id: '63611',
-      name: '斗破苍穹',
-      author: '天蚕土豆',
-      cover: 'https://www.biquge365.net/files/cover.jpg',
-      intro: '这里是属于斗气的世界',
-      category: '其他类型',
-      status: '连载中',
-    });
-  });
-
-  it('元信息缺失时回退到 h1 与「佚名」', () => {
-    const book = parseBookMetaHtml('<h1>某书</h1>', '7');
-    expect(book.name).toBe('某书');
-    expect(book.author).toBe('佚名');
-  });
-});
-
-describe('parseTocHtml', () => {
-  const html = `<div class="listmain">
-    <a href="/chapter/63611/900.html">第1章 陨落的天才</a>
-    <a href="/chapter/63611/901.html">第2章 斗气大陆</a>
-    <a href="/chapter/60000/999.html">别的书的章节</a>
-    <a href="/chapter/63611/900.html">第1章 陨落的天才</a>
-    <a href="/chapter/63611/902.html"></a>
-    <a href="/chapter/63611/903.html">开始阅读</a>
-    <a href="/chapter/63611/904.html">《：斗帝之路》手游·角色传记（上）</a>
-  </div>`;
-
-  it('按出现顺序抽取章节并按 ID 去重，忽略空标题与其他书的链接', () => {
-    expect(parseTocHtml(html, '63611')).toEqual([
-      { id: '900', title: '第1章 陨落的天才' },
-      { id: '901', title: '第2章 斗气大陆' },
-    ]);
-  });
-});
-
-describe('parseChapterHtml', () => {
-  const html = `<title>斗破苍穹_第1章 陨落的天才_笔趣阁</title>
-    <div id="txt" class="txt">
-      <p style="font-weight:bold">一秒记住【笔趣阁】biquge365.net，更新快，无弹窗！</p><br>
-      &nbsp;&nbsp;&nbsp;&nbsp;第1章 陨落的天才<br/>
-      &nbsp;&nbsp;&nbsp;&nbsp;「斗之力，三段！」<br/>
-      &nbsp;&nbsp;&nbsp;&nbsp;望着测验魔石碑上面闪亮得甚至有些刺眼的五个大字。<br/>
-    </div>`;
-
-  it('取标题中间段，正文按 <br/> 拆段并剔除广告与重复标题', () => {
-    const { title, paragraphs } = parseChapterHtml(html);
-    expect(title).toBe('第1章 陨落的天才');
-    expect(paragraphs).toEqual(['「斗之力，三段！」', '望着测验魔石碑上面闪亮得甚至有些刺眼的五个大字。']);
-  });
-
-  it('剔除站点插入的分页标记', () => {
-    const marked = `<html><title>书名_第5章 相遇_笔趣阁</title><body>
-      <div  id="txt" class="txt">
-        &nbsp;&nbsp;第5章 相遇(第1/2页)<br/>
-        &nbsp;&nbsp;他把门带上，屋里只剩风声。(第2/2页)<br/>
-        &nbsp;&nbsp;2/2页<br/>
-      </div></body></html>`;
-    expect(parseChapterHtml(marked).paragraphs).toEqual(['他把门带上，屋里只剩风声。']);
-  });
-
-  it('正文容器缺失时返回空段落', () => {
-    expect(parseChapterHtml('<html><title>只有标题_第1章_x</title></html>').paragraphs).toEqual([]);
-  });
-});
-
 
 describe('chapterNumber', () => {
   it('识别阿拉伯与中文章号', () => {
     expect(chapterNumber('第12章 试探')).toBe(12);
+    expect(chapterNumber('第1099章願望和交易')).toBe(1099);
     expect(chapterNumber('第一百六十八章 赵磊')).toBe(168);
     expect(chapterNumber('第十章 起步')).toBe(10);
-    expect(chapterNumber('第一千零一章 归来')).toBe(1001);
   });
 
   it('番外、感言等取不到章号', () => {
-    expect(chapterNumber('完结感言！！')).toBeNull();
-    expect(chapterNumber('番外：第五章王平')).toBeNull();
+    expect(chapterNumber('番外：第4章招魂（三）')).toBeNull();
+    expect(chapterNumber('完本感言')).toBeNull();
   });
 });
 
-describe('parseTocHtml 排序', () => {
-  it('倒序的最新章节小块与正序全目录混合后按章号升序', () => {
-    const html = `<div>
-      <a href="/chapter/63611/903.html">第124章 卢谨</a>
-      <a href="/chapter/63611/902.html">第123章 最后一课</a>
-      <a href="/chapter/63611/801.html">第1章 日更三万</a>
-      <a href="/chapter/63611/802.html">第2章 催更鬼</a>
-      <a href="/chapter/63611/803.html">第一百一十章 变数</a>
-      <a href="/chapter/63611/804.html">完本感言</a>
-    </div>`;
-    expect(parseTocHtml(html).map((c) => c.title)).toEqual([
-      '第1章 日更三万',
-      '第2章 催更鬼',
-      '第一百一十章 变数',
-      '第123章 最后一课',
-      '第124章 卢谨',
-      '完本感言',
-    ]);
+const SEARCH_HTML = `
+<ul class = "nav novel-list style-default">
+  <li class = "novel-item-wrapper">
+    <div class = "novel-item">
+      <div class = "novel-item-cover-wrapper">
+        <a href = "//czbooks.net/n/uj4ib">
+          <div class = "novel-item-title">神秘複蘇</div>
+        </a>
+      </div>
+      <div class = "novel-item-author">作者: <a href="//czbooks.net/a/佛前獻花">佛前獻花</a></div>
+      <div class = "novel-item-newest-chapter">最新: <a href="//czbooks.net/n/uj4ib/u3dph">番外：第4章招魂（三）</a></div>
+      <div class = "novel-item-date">2023-08-25</div>
+    </div>
+  </li>
+  <li class = "novel-item-wrapper">
+    <div class = "novel-item">
+      <div class = "novel-item-cover-wrapper">
+        <a href = "//czbooks.net/n/uj4ib"><div class = "novel-item-title">重複項</div></a>
+      </div>
+    </div>
+  </li>
+  <li class = "novel-item-wrapper">
+    <div class = "novel-item">
+      <div class = "novel-item-cover-wrapper">
+        <a href = "//czbooks.net/n/c8idd3"><div class = "novel-item-title">斗破蒼穹之虛空破</div></a>
+      </div>
+    </div>
+  </li>
+</ul>`;
+
+describe('parseSearchHtml', () => {
+  it('解析书名/作者/最新章/日期，并按 bookId 去重', () => {
+    const items = parseSearchHtml(SEARCH_HTML);
+    expect(items).toHaveLength(2);
+    expect(items[0]).toMatchObject({
+      id: 'uj4ib',
+      name: '神秘复苏',
+      author: '佛前献花',
+      latestChapter: '番外：第4章招魂（三）',
+      updatedAt: '2023-08-25',
+    });
+    expect(items[1].name).toBe('斗破苍穹之虚空破');
   });
 });
+
+const BOOK_HTML = `
+<div class = "novel-detail">
+  <div class = "thumbnail"><img src="https://img.czbooks.net/thumbnail/a.jpg" /></div>
+  <div class = "state">
+    <table>
+      <tr><td>連載狀態</td><td>連載中</td></tr>
+      <tr><td> 分  類 </td><td><a id="novel-category" href="//czbooks.net/c/xianxia">武俠仙俠</a></td></tr>
+    </table>
+  </div>
+  <div class="info-wrap">
+    <div class = "info">
+      <span class = "title">《神秘複蘇》</span>
+      <span class = "author">作者: <a href="//czbooks.net/a/佛前獻花">佛前獻花</a></span>
+    </div>
+    <div class = "description">靈異復甦的故事。<br />楊間開始了他的旅程。</div>
+  </div>
+</div>
+<ul class = "nav chapter-list" id = "chapter-list">
+  <li class = "volume">正文卷</li>
+  <li><a href="//czbooks.net/n/uj4ib/ui3p1">第2章臨時講課</a></li>
+  <li><a href="//czbooks.net/n/uj4ib/ui3pg">第1章論壇裡的鬼故事。</a></li>
+  <li><a href="//czbooks.net/n/uj4ib/u3cdl">番外 招魂（一）</a></li>
+  <li><a href="https://czbooks.net/n/other/u3cdl">第3章 別的書</a></li>
+  <li><a href="//czbooks.net/n/uj4ib/ujunk">今天無更</a></li>
+  <li><a href="//czbooks.net/n/uj4ib/ujunk2">求月票</a></li>
+</ul>`;
+
+describe('parseBookMetaHtml', () => {
+  it('取书名、作者、封面、状态、分类与简介', () => {
+    expect(parseBookMetaHtml(BOOK_HTML, 'uj4ib')).toMatchObject({
+      id: 'uj4ib',
+      name: '神秘复苏',
+      author: '佛前献花',
+      cover: 'https://img.czbooks.net/thumbnail/a.jpg',
+      status: '连载中',
+      category: '武侠仙侠',
+      intro: '灵异复苏的故事。 杨间开始了他的旅程。',
+    });
+  });
+
+  it('默认占位封面视为没有封面', () => {
+    const html = '<div class = "thumbnail"><img src="https://czbooks.net/images/default_no_thumbnail.jpg"></div>';
+    expect(parseBookMetaHtml(html, 'x1').cover).toBeUndefined();
+  });
+});
+
+describe('parseTocHtml', () => {
+  it('跳过卷标题与其他书的链接，并按章号升序（番外排最后）', () => {
+    const chapters = parseTocHtml(BOOK_HTML, 'uj4ib');
+    expect(chapters.map((c) => c.title)).toEqual(['第1章论坛里的鬼故事。', '第2章临时讲课', '番外 招魂（一）']);
+    expect(chapters.map((c) => c.id)).toEqual(['ui3pg', 'ui3p1', 'u3cdl']);
+  });
+});
+
+const CHAPTER_HTML = `
+<html><head><title>【神秘複蘇】第1章 | 小說狂人</title></head><body>
+<div class = "name">《神秘複蘇》第1章論壇裡的鬼故事。</div>
+<div class = "content">第1章論壇裡的鬼故事。<br /><br />　　老頭掐指一算。<br /><br />　　「臥槽，樓主真乃神人也。」<br /><br />　　請記住本站小說狂人。<br /></div>
+</body></html>`;
+
+describe('parseChapterHtml', () => {
+  it('标题去掉书名，正文按 <br /> 拆段并转简体，剔除广告与重复标题', () => {
+    const { title, paragraphs } = parseChapterHtml(CHAPTER_HTML);
+    expect(title).toBe('第1章论坛里的鬼故事。');
+    expect(paragraphs).toEqual(['老头掐指一算。', '「卧槽，楼主真乃神人也。」']);
+  });
+
+  it('正文容器缺失时返回空段落', () => {
+    expect(parseChapterHtml('<html><body>无</body></html>').paragraphs).toEqual([]);
+  });
+});
+
 describe('clearNovelCache', () => {
   it('可重复调用（缓存模块无副作用）', () => {
     clearNovelCache();
