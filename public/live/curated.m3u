@@ -3,15 +3,53 @@
 https://bp-resource-dfl.bestv.cn/148/3/video.m3u8
 #EXTINF:-1 tvg-name="北京卫视" tvg-id="539726" group-title="卫视",北京卫视
 https://gcalic.v.myalicdn.com/gc/wgw01_1/index.m3u8?contentid=2820180516001
-#EXTINF:-1 tvg-name="黑龙江卫视" tvg-id="539850" group-title="卫视",黑龙江卫视
-https://idclive.hljtv.com:4430/live/hljws_own.m3u8
+#EXTINF:-1 tvg-name="浙江卫视" tvg-id="539700" group-title="卫视",浙江卫视
+https://ali-m-l.cztv.com/channels/lantian/channel001/1080p.m3u8
 #EXTINF:-1 tvg-name="河北卫视" tvg-id="539695" group-title="卫视",河北卫视
 https://event.pull.hebtv.com/live/live101.m3u8
-#EXTINF:-1 tvg-name="浙江卫视" tvg-id="539700" group-title="卫视",浙江卫视
-https://ali-m-l.cztv.com/channels/lantian/channel010/1080p.m3u8
+#EXTINF:-1 tvg-name="黑龙江卫视" tvg-id="539850" group-title="卫视",黑龙江卫视
+https://idclive.hljtv.com:4430/live/hljws_own.m3u8
 #EXTINF:-1 tvg-name="安徽卫视" tvg-id="539701" group-title="卫视",安徽卫视
 https://gcalic.v.myalicdn.com/gc/hsptgy_1/index.m3u8?contentid=2820180516001
+#EXTINF:-1 tvg-name="延边卫视" group-title="卫视",延边卫视
+https://srs.iyb983.cn:443/video/CYS/index.m3u8
+#EXTINF:-1 tvg-name="安多卫视" group-title="卫视",安多卫视
+https://liveout.xntv.tv/a65jur/96iln2.m3u8
 #EXTINF:-1 tvg-name="CCTV-9 纪录" tvg-id="545941" group-title="央视",CCTV-9 纪录
 https://xykt-fix.github.io/Y77.m3u8
+#EXTINF:-1 tvg-name="CGTN" group-title="国际",CGTN
+https://english-livebkali.cgtn.com/live/encgtn_0.m3u8
 #EXTINF:-1 tvg-name="CGTN 纪录" tvg-id="544390" group-title="国际",CGTN 纪录
 https://english-livebkali.cgtn.com/live/doccgtn_0.m3u8
+#EXTINF:-1 tvg-name="浙江新闻" group-title="地方",浙江新闻
+https://ali-m-l.cztv.com/channels/lantian/channel007/1080p.m3u8
+#EXTINF:-1 tvg-name="浙江教科影视" group-title="地方",浙江教科影视
+https://ali-m-l.cztv.com/channels/lantian/channel004/1080p.m3u8
+#EXTINF:-1 tvg-name="浙江少儿" group-title="地方",浙江少儿
+https://ali-m-l.cztv.com/channels/lantian/channel008/1080p.m3u8
+#EXTINF:-1 tvg-name="新昌新闻综合" group-title="地方",新昌新闻综合
+https://l.cztvcloud.com/channels/lantian/SXxinchang1/720p.m3u8
+#EXTINF:-1 tvg-name="诸暨新闻综合" group-title="地方",诸暨新闻综合
+https://l.cztvcloud.com/channels/lantian/SXzhuji3/720p.m3u8
+#EXTINF:-1 tvg-name="邯郸新闻" group-title="地方",邯郸新闻
+https://jwcdnqx.hebyun.com.cn/live/hdxwzh/1500k/tzwj_video.m3u8
+#EXTINF:-1 tvg-name="邯郸公共" group-title="地方",邯郸公共
+https://jwcdnqx.hebyun.com.cn/live/hdgg/1500k/tzwj_video.m3u8
+#EXTINF:-1 tvg-name="邯郸科技教育" group-title="地方",邯郸科技教育
+https://jwcdnqx.hebyun.com.cn/live/hdkj/1500k/tzwj_video.m3u8
+#EXTINF:-1 tvg-name="昌黎综合" group-title="地方",昌黎综合
+https://jwcdnqx.hebyun.com.cn/live/clzhpd/1500k/tzwj_video.m3u8
+#EXTINF:-1 tvg-name="丰宁综合" group-title="地方",丰宁综合
+https://jwcdnqx.hebyun.com.cn/live/fengningzonghe/1500k/tzwj_video.m3u8
+#EXTINF:-1 tvg-name="平泉综合" group-title="地方",平泉综合
+https://jwcdnqx.hebyun.com.cn/live/pqzh/1500k/tzwj_video.m3u8
+#EXTINF:-1 tvg-name="迁西综合" group-title="地方",迁西综合
+https://jwcdnqx.hebyun.com.cn/live/qxzhpd/1500k/tzwj_video.m3u8
+#EXTINF:-1 tvg-name="兴隆综合" group-title="地方",兴隆综合
+https://jwcdnqx.hebyun.com.cn/live/xlzh/1500k/tzwj_video.m3u8
+#EXTINF:-1 tvg-name="山东教育" group-title="地方",山东教育
+https://test1.live.sdetv.com.cn/live/dianshizhibo/playlist.m3u8
+#EXTINF:-1 tvg-name="东莞新闻综合" group-title="地方",东莞新闻综合
+https://stream.sun0769.com/dgrtv1/mp4tv1_800/index.m3u8
+#EXTINF:-1 tvg-name="苏州新闻综合" group-title="地方",苏州新闻综合
+https://live-auth.51kandianshi.com/szgd/csztv1.m3u8
