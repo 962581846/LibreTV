@@ -11,9 +11,10 @@
 import { clearNovelCache as czClearCache, fetchNovelBook as czFetchBook, fetchNovelChapter as czFetchChapter, searchNovel as czSearch } from './novel-source';
 import { bgClearNovelCache, bgFetchNovelBook, bgFetchNovelChapter, bgSearchNovel } from './novel-biquge365';
 import { shClearNovelCache, shFetchNovelBook, shFetchNovelChapter, shSearchNovel } from './novel-shuhaige';
+import { stClearNovelCache, stFetchNovelBook, stFetchNovelChapter, stSearchNovel } from './novel-sto66';
 import type { NovelBook, NovelChapter, NovelSearchItem } from './types';
 
-export type NovelSourceId = 'shuhaige' | 'biquge365' | 'czbooks';
+export type NovelSourceId = 'shuhaige' | 'sto66' | 'biquge365' | 'czbooks';
 export type NovelSearchBy = 'articlename' | 'author';
 
 export interface NovelSourceInfo {
@@ -39,6 +40,15 @@ const shuhaige: NovelSourceAdapter = {
   matchesId: (id) => /^\d{13,20}$/.test(id),
 };
 
+const sto66: NovelSourceAdapter = {
+  id: 'sto66',
+  label: '思兔阅读',
+  note: 'sto66.com，正文干净、更新最快，目录单页抓全',
+  search: (keyword, by = 'articlename') => stSearchNovel(keyword, by),
+  book: (id) => stFetchNovelBook(id),
+  chapter: (bookId, chapterId) => stFetchNovelChapter(bookId, chapterId),
+  matchesId: (id) => /^[A-Za-z0-9]{16,32}$/.test(id) && /[A-Za-z]/.test(id) && !/^[a-z0-9]{1,15}$/.test(id),
+};
 const biquge365: NovelSourceAdapter = {
   id: 'biquge365',
   label: '笔趣阁（境内）',
@@ -60,9 +70,9 @@ const czbooks: NovelSourceAdapter = {
 };
 
 /** 搜索时的默认尝试顺序：先境内（不容易被墙），再境外（正文更干净） */
-export const DEFAULT_SOURCE_ORDER: NovelSourceId[] = ['shuhaige', 'biquge365', 'czbooks'];
+export const DEFAULT_SOURCE_ORDER: NovelSourceId[] = ['shuhaige', 'sto66', 'biquge365', 'czbooks'];
 
-export const NOVEL_SOURCES: NovelSourceAdapter[] = [shuhaige, biquge365, czbooks];
+export const NOVEL_SOURCES: NovelSourceAdapter[] = [shuhaige, sto66, biquge365, czbooks];
 
 export function listNovelSources(): NovelSourceInfo[] {
   return NOVEL_SOURCES.map(({ id, label, note }) => ({ id, label, note }));
@@ -81,6 +91,7 @@ export function clearAllNovelCaches(): void {
   czClearCache();
   bgClearNovelCache();
   shClearNovelCache();
+  stClearNovelCache();
 }
 
 export interface NovelSourceFailure {
