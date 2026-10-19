@@ -201,3 +201,49 @@ export interface SourceListPayload {
   /** 解析统计（格式、跳过与截断），老数据可能缺失 */
   stats?: SubscriptionParseStats;
 }
+
+// ---------- 小说模块 ----------
+
+/** 小说搜索结果条目（仅列表页信息） */
+export interface NovelSearchItem {
+  /** 站点书籍 ID（/book/<id>/） */
+  id: string;
+  name: string;
+  author: string;
+  category?: string;
+  /** 最新章节标题，便于判断是否在更新 */
+  latestChapter?: string;
+  updatedAt?: string;
+}
+
+/** 目录中的一章 */
+export interface NovelChapterRef {
+  /** 章节 ID（/chapter/<bid>/<cid>.html） */
+  id: string;
+  title: string;
+}
+
+/** 书籍详情 + 全量目录 */
+export interface NovelBook {
+  id: string;
+  name: string;
+  author: string;
+  cover?: string;
+  intro?: string;
+  category?: string;
+  status?: string;
+  chapters: NovelChapterRef[];
+}
+
+/** 单章正文；prevId/nextId 由服务端按目录顺序计算 */
+export interface NovelChapter {
+  id: string;
+  bookId: string;
+  title: string;
+  content: string;
+  /** 目录序号（从 0 开始） */
+  index: number;
+  total: number;
+  prevId?: string;
+  nextId?: string;
+}
